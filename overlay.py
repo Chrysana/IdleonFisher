@@ -1,3 +1,4 @@
+import sys
 import tkinter as tk
 from tkinter import ttk
 import threading
@@ -21,7 +22,8 @@ HOT  = "#e94560"
 FG   = "#eaeaea"
 MONO = ("Consolas", 10)
 
-_HERE = Path(__file__).parent
+# When bundled with PyInstaller --onefile, data files land in sys._MEIPASS
+_HERE = Path(sys._MEIPASS) if hasattr(sys, "_MEIPASS") else Path(__file__).parent
 
 
 class App(tk.Tk):
