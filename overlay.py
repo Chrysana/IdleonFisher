@@ -6,14 +6,10 @@ import time
 from pathlib import Path
 
 from cast_executor import execute_cast
+from timing import get_hold_time
 
 MIN_POSITION = 1.0   # dead zone below this position
-
-# Piecewise timing constants (calibrated from cal5+6+7, split at pos 3.5)
-_MIN_MS = 198.0
-_MID_MS = 692.0
-_MAX_MS = 939.0
-_SPLIT  = 3.5
+_CAST_HINT   = "Click where the fish is  •  Esc to stop"
 
 BG   = "#1a1a2e"
 CARD = "#16213e"
@@ -101,9 +97,8 @@ class App(tk.Tk):
                  bg=ACC, fg=FG, anchor="w", padx=8, pady=4).pack(fill="x", side="bottom")
 
     def _load_image(self, filename: str):
-        path = _HERE / filename
         try:
-            return tk.PhotoImage(file=str(path))
+            return tk.PhotoImage(file=str(_HERE / filename))
         except Exception:
             return None
 
@@ -166,8 +161,7 @@ class App(tk.Tk):
         canvas.pack(fill="both", expand=True)
         info = canvas.create_text(
             ov.winfo_screenwidth() // 2, 40,
-            text="Click where the fish is  •  Esc to stop",
-            fill=HOT, font=("Segoe UI", 12, "bold"),
+            text=_CAST_HINT, fill=HOT, font=("Segoe UI", 12, "bold"),
         )
 
         def on_click(event):
@@ -179,7 +173,7 @@ class App(tk.Tk):
             click_y = event.y_root
             span    = self.right_bound - self.left_bound
             pos     = max(MIN_POSITION, min(7.0, (raw_x - self.left_bound) / span * 7.0))
-            hold_ms = self._get_hold_ms(pos)
+            hold_ms = get_hold_time(pos)
 
             self.status_var.set(f"Casting to pos={pos:.2f}  hold={hold_ms:.0f}ms")
 
@@ -190,13 +184,13 @@ class App(tk.Tk):
                 time.sleep(0.15)   # give the OS time to process the window hide
                 execute_cast(hold_ms, position=(raw_x, click_y))
                 self._casting = False
-                self.after(0, ov.deiconify)
-                self.after(0, lambda: ov.attributes("-topmost", True))
-                self.after(0, ov.focus_force)
-                self.after(0, lambda: canvas.itemconfig(
-                    info, text="Click where the fish is  •  Esc to stop"))
-                self.after(0, lambda h=hold_ms, p=pos: self.status_var.set(
-                    f"Cast complete.  pos={p:.2f}  hold={h:.0f}ms"))
+                def restore():
+                    ov.deiconify()
+                    ov.attributes("-topmost", True)
+                    ov.focus_force()
+                    canvas.itemconfig(info, text=_CAST_HINT)
+                    self.status_var.set(f"Cast complete.  pos={pos:.2f}  hold={hold_ms:.0f}ms")
+                self.after(0, restore)
 
             threading.Thread(target=do_cast, daemon=True).start()
 
@@ -209,14 +203,6 @@ class App(tk.Tk):
         if ov.winfo_exists():
             ov.destroy()
         self.status_var.set("Casting stopped. Click Start Casting to begin again.")
-
-    # ── Helpers ───────────────────────────────────────────────────────────────
-
-    def _get_hold_ms(self, position: float) -> float:
-        if position <= _SPLIT:
-            return _MIN_MS + (position / _SPLIT) * (_MID_MS - _MIN_MS)
-        else:
-            return _MID_MS + ((position - _SPLIT) / _SPLIT) * (_MAX_MS - _MID_MS)
 
     def _reset(self):
         self.left_bound = None

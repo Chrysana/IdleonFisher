@@ -42,6 +42,8 @@ class CalibrationApp(tk.Tk):
         self.data: list[tuple[float, float, int]] = []   # (hold_ms, position, raw_x)
         self.monitoring  = False
         self._picking    = False   # suppresses mouse listener during bound pick
+        self._fit_min: float | None = None
+        self._fit_max: float | None = None
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -304,13 +306,12 @@ class CalibrationApp(tk.Tk):
 
         self._fit_min = min_ms
         self._fit_max = max_ms
-        self.fit_label.config(
-            text=f"MIN_HOLD_MS = {min_ms:.1f}    MAX_HOLD_MS = {max_ms:.1f}", fg=HOT)
+        self.fit_label.config(text=f"MIN_HOLD_MS = {min_ms:.1f}    MAX_HOLD_MS = {max_ms:.1f}", fg=HOT)
 
     def _copy_fit(self):
-        if not hasattr(self, "_fit_min"):
+        if self._fit_min is None:
             self._compute_fit()
-        if not hasattr(self, "_fit_min"):
+        if self._fit_min is None:
             return
         text = (f"MIN_HOLD_MS: float = {self._fit_min:.1f}\n"
                 f"MAX_HOLD_MS: float = {self._fit_max:.1f}")
@@ -344,8 +345,8 @@ class CalibrationApp(tk.Tk):
     def _clear(self):
         self.data.clear()
         self._refresh_table()
-        if hasattr(self, "_fit_min"):
-            del self._fit_min, self._fit_max
+        self._fit_min = None
+        self._fit_max = None
         self.fit_label.config(text="Need ≥ 2 data points with different positions", fg="#555")
         self.status_var.set("Data cleared.")
 
